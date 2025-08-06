@@ -81,3 +81,16 @@ class DatabaseManager:
         """Get all active agents"""
         response = self.client.table('agent_states').select("*").neq('status', 'offline').execute()
         return response.data or []
+    
+    async def get_agent_by_id(self, agent_id: str) -> dict:
+        """Get agent by agent_id (not UUID id)"""
+        response = self.client.table('agent_states').select("*").eq('agent_id', agent_id).execute()
+        return response.data[0] if response.data else None
+
+    async def update_agent_status(self, agent_id: str, status: str) -> dict:
+        """Update agent status by agent_id"""
+        response = self.client.table('agent_states').update({
+            'status': status,
+            'last_activity': 'now()'
+        }).eq('agent_id', agent_id).execute()
+        return response.data[0] if response.data else None
