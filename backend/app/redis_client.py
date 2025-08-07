@@ -2,7 +2,7 @@ import redis.asyncio as redis
 from typing import Optional, Dict, Any
 import json
 import structlog
-from config import get_settings
+from backend.app.config import get_settings
 
 logger = structlog.get_logger()
 settings = get_settings()

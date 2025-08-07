@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 import structlog
-from config import get_settings
+from backend.app.config import get_settings
 from database import init_supabase, DatabaseManager
 from redis_client import init_redis, RedisManager
 
