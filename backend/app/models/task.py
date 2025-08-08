@@ -9,19 +9,12 @@ class TaskStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
-    CANCELLED = "cancelled"
-
-class TaskPriority(str, Enum):
-    LOW = 1
-    MEDIUM = 5
-    HIGH = 8
-    URGENT = 10
 
 class Task(BaseModel):
     id: str = Field(default_factory=lambda:str(uuid.uuid4()))
-    human_request: str = Field(..., description="Original human request")
+    human_request: str
     status: TaskStatus = TaskStatus.PENDING
-    priority: TaskPriority = TaskPriority.MEDIUM
+    priority: int = Field(default=5, ge=1, le=10)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
     results: Optional[Dict[str, Any]] = None
@@ -35,13 +28,4 @@ class Task(BaseModel):
 
 class TaskSubmission(BaseModel):
     human_request: str = Field(..., min_length=10, max_length=1000)
-    priority: TaskPriority = TaskPriority.NORMAL
-    context: Dict[str, Any] = Field(default_factory=dict)
-
-
-class TaskResponse(BaseModel):
-    task_id: str
-    status: TaskStatus
-    progress: float
-    results: Optional[Dict[str, Any]] = None
-    agent_activities: List[Dict[str, Any]] = Field(default_factory=list)
+    priority: int = Field(default=5, ge=1, le=10)

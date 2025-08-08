@@ -43,89 +43,35 @@ def get_redis() -> redis.Redis:
         raise RuntimeError("Redis not initialized. Call init_redis() first.")
     return redis_client
 
+async def push_task(task_data: Dict[str, Any], priority: int = 5) -> bool:
+    """Add task to queue with priority"""
+    task_json = json.dumps(task_data)
+    await get_redis().zadd("task_queue", {task_json: priority})
+    return True
 
-class RedisManager:
-    """Redis operations manager for agent communication"""
-    
-    def __init__(self):
-        self.client = get_redis()
-    
-    async def health_check(self) -> bool:
-        """Check Redis health"""
-        try:
-            await self.client.ping()
-            return True
-        except Exception as e:
-            logger.error(f"Redis health check failed: {e}")
-            return False
-    
-    # Agent State Caching
-    async def set_agent_state(self, agent_id: str, state: Dict[str, Any], ttl: int = 3600):
-        """Cache agent state with TTL"""
-        await self.client.hset(
-            f"agent:{agent_id}", 
-            mapping={k: json.dumps(v) if isinstance(v, (dict, list)) else str(v) for k, v in state.items()}
-        )
-        await self.client.expire(f"agent:{agent_id}", ttl)
-    
-    async def get_agent_state(self, agent_id: str) -> Dict[str, Any]:
-        """Get cached agent state"""
-        data = await self.client.hgetall(f"agent:{agent_id}")
-        return {k: self._deserialize_value(v) for k, v in data.items()}
-    
-    async def delete_agent_state(self, agent_id: str):
-        """Remove agent state from cache"""
-        await self.client.delete(f"agent:{agent_id}")
-    
-    # Task Queue Management
-    async def add_task_to_queue(self, queue_name: str, task_data: Dict[str, Any], priority: int = 5):
-        """Add task to priority queue"""
-        task_json = json.dumps(task_data)
-        await self.client.zadd(f"queue:{queue_name}", {task_json: priority})
-    
-    async def get_next_task(self, queue_name: str) -> Optional[Dict[str, Any]]:
-        """Get highest priority task from queue"""
-        result = await self.client.zpopmax(f"queue:{queue_name}")
-        if result:
-            task_json, priority = result[0]
-            return json.loads(task_json)
-        return None
-    
-    async def get_queue_length(self, queue_name: str) -> int:
-        """Get number of tasks in queue"""
-        return await self.client.zcard(f"queue:{queue_name}")
-    
-    # Inter-Agent Messaging
-    async def publish_message(self, channel: str, message: Dict[str, Any]):
-        """Publish message to channel for agent communication"""
-        await self.client.publish(channel, json.dumps(message))
-    
-    async def subscribe_to_channel(self, channel: str):
-        """Subscribe to channel for receiving messages"""
-        pubsub = self.client.pubsub()
-        await pubsub.subscribe(channel)
-        return pubsub
-    
-    # Shared Data Storage
-    async def set_shared_data(self, key: str, data: Any, ttl: Optional[int] = None):
-        """Store shared data between agents"""
-        value = json.dumps(data) if isinstance(data, (dict, list)) else str(data)
-        await self.client.set(f"shared:{key}", value)
-        if ttl:
-            await self.client.expire(f"shared:{key}", ttl)
-    
-    async def get_shared_data(self, key: str) -> Any:
-        """Get shared data"""
-        value = await self.client.get(f"shared:{key}")
-        return self._deserialize_value(value) if value else None
-    
-    async def delete_shared_data(self, key: str):
-        """Delete shared data"""
-        await self.client.delete(f"shared:{key}")
-    
-    def _deserialize_value(self, value: str) -> Any:
-        """Helper to deserialize JSON values"""
-        try:
-            return json.loads(value)
-        except (json.JSONDecodeError, TypeError):
-            return value
+async def pop_task() -> Optional[Dict[str, Any]]:
+    """Get highest priority task from queue"""
+    result = await get_redis().zpopmax("task_queue")
+    if result:
+        task_json, _ = result[0]
+        return json.loads(task_json)
+    return None
+
+async def publish(channel: str, data: Dict[str, Any]) -> bool:
+    """Publish message to channel"""
+    await get_redis().publish(channel, json.dumps(data))
+    return True
+
+async def get_pubsub() -> redis.client.PubSub:
+    """Get pubsub instance for subscriptions"""
+    return get_redis().pubsub()
+
+async def set_agent_status(agent_id: str, status: str) -> bool:
+    """Update agent status in Redis"""
+    await get_redis().hset(f"agent:{agent_id}", "status", status)
+    await get_redis().expire(f"agent:{agent_id}", 3600)
+    return True
+
+async def get_agent_status(agent_id: str) -> Optional[str]:
+    """Get agent status from Redis"""
+    return await get_redis().hget(f"agent:{agent_id}", "status")

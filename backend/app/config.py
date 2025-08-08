@@ -8,8 +8,6 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "AIA"
     debug: bool = True
-    host: str = "0.0.0.0"
-    port: int = 8000
     
     # API Keys
     openai_api_key: Optional[str] = None
@@ -21,7 +19,6 @@ class Settings(BaseSettings):
     supabase_service_key: Optional[str] = None
     
     # Redis/Upstash
-    redis_url: Optional[str] = None
     upstash_redis_url: Optional[str] = None
     
     # Agent Configuration

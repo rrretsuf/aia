@@ -1,5 +1,5 @@
 from supabase import create_client, Client
-from typing import Optional
+from typing import Optional, Any, Dict
 import structlog
 from backend.app.config import get_settings
 
@@ -39,58 +39,34 @@ def get_supabase() -> Client:
         raise RuntimeError("Supabase not initialized. Call init_supabase() first.")
     return supabase
 
+async def create_task(task_data: Dict[str, Any]) -> str:
+    """Create a new task and return its ID"""
+    response = get_supabase().table('tasks').insert(task_data).execute()
+    return response.data[0]['id'] if response.data else None
 
-class DatabaseManager:
-    """Database operations manager"""
-    
-    def __init__(self):
-        self.client = get_supabase()
-    
-    async def health_check(self) -> bool:
-        """Check database health"""
-        try:
-            response = self.client.table('tasks').select("count", count='exact').execute()
-            return True
-        except Exception as e:
-            logger.error(f"Database health check failed: {e}")
-            return False
-    
-    async def create_task(self, task_data: dict) -> dict:
-        """Create a new task"""
-        response = self.client.table('tasks').insert(task_data).execute()
-        return response.data[0] if response.data else None
-    
-    async def get_task(self, task_id: str) -> dict:
-        """Get task by ID"""
-        response = self.client.table('tasks').select("*").eq('id', task_id).execute()
-        return response.data[0] if response.data else None
-    
-    async def update_task_status(self, task_id: str, status: str) -> dict:
-        """Update task status"""
-        response = self.client.table('tasks').update({
-            'status': status
-        }).eq('id', task_id).execute()
-        return response.data[0] if response.data else None
-    
-    async def create_agent_state(self, agent_data: dict) -> dict:
-        """Create or update agent state"""
-        response = self.client.table('agent_states').upsert(agent_data).execute()
-        return response.data[0] if response.data else None
-    
-    async def get_active_agents(self) -> list:
-        """Get all active agents"""
-        response = self.client.table('agent_states').select("*").neq('status', 'offline').execute()
-        return response.data or []
-    
-    async def get_agent_by_id(self, agent_id: str) -> dict:
-        """Get agent by agent_id (not UUID id)"""
-        response = self.client.table('agent_states').select("*").eq('agent_id', agent_id).execute()
-        return response.data[0] if response.data else None
+async def get_task(task_id: str) -> Dict[str, Any]:
+    """Get task by ID"""
+    response = get_supabase().table('tasks').select("*").eq('id', task_id).execute()
+    return response.data[0] if response.data else None
 
-    async def update_agent_status(self, agent_id: str, status: str) -> dict:
-        """Update agent status by agent_id"""
-        response = self.client.table('agent_states').update({
-            'status': status,
-            'last_activity': 'now()'
-        }).eq('agent_id', agent_id).execute()
-        return response.data[0] if response.data else None
+async def update_task(task_id: str, updates: Dict[str, Any]) -> bool:
+    """Update task with any fields"""
+    response = get_supabase().table('tasks').update(updates).eq('id', task_id).execute()
+    return bool(response.data)
+
+async def save_findings(task_id: str, agent_id: str, findings: Dict[str, Any]) -> bool:
+    """Save research findings"""
+    data = {
+        'task_id': task_id,
+        'agent_id': agent_id,
+        'findings': findings,
+        'confidence': findings.get('confidence', 0.5)
+    }
+    response = get_supabase().table('research_findings').insert(data).execute()
+    return bool(response.data)
+
+async def get_findings(task_id: str) -> list:
+    """Get all findings for a task"""
+    response = get_supabase().table('research_findings').select("*").eq('task_id', task_id).execute()
+    return response.data or []
+
