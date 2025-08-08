@@ -18,7 +18,7 @@ class PlannerAgent(BaseAgent):
         # TODO: use llm to decompose request
 
         # for now, simple mock decomposition
-        subtasks = self._mock_decomponse(human_request)
+        subtasks = self._mock_decompose(human_request)
 
         await decompose_task(task["id"], subtasks)
 

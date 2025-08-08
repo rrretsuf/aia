@@ -45,7 +45,7 @@ class BaseAgent(ABC):
         Stop the agent's main loop and perform cleanup.
         """
         self.running = False
-        await self.set_agent_status(self.agent_id, AgentStatus.OFFLINE.value)
+        await set_agent_status(self.agent_id, AgentStatus.OFFLINE.value)
         await notify_agent_status(self.agent_id, AgentStatus.OFFLINE.value)
         self.logger.info(f"Stopping agent {self.agent_id}")
 

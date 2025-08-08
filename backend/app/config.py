@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     supabase_service_key: Optional[str] = None
     
     # Redis/Upstash
+    redis_url: Optional[str] = None 
     upstash_redis_url: Optional[str] = None
     
     # Agent Configuration

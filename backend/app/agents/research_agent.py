@@ -6,7 +6,7 @@ from ..models.agent import AgentType
 class ResearchAgent(BaseAgent):
 
     def __init__(self, agent_number: int):
-        agent_id = f"research_{agent_number:o3d}"
+        agent_id = f"research_{agent_number:03d}"
         super().__init__(agent_id=agent_id, agent_type=AgentType.RESEARCH)
         self.agent_number = agent_number
 

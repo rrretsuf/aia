@@ -1,7 +1,7 @@
 from supabase import create_client, Client
 from typing import Optional, Any, Dict
 import structlog
-from backend.app.config import get_settings
+from .config import get_settings
 
 logger = structlog.get_logger()
 settings = get_settings()

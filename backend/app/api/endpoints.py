@@ -21,7 +21,7 @@ async def create_task_endpoint(submission: TaskSubmission) -> Dict[str, Any]:
         "status": "submitted"
     }
 
-@router.get("/tasks/{tasks_id}")
+@router.get("/tasks/{task_id}")
 async def get_task_endpoint(task_id: str) -> Dict[str, Any]:
     """
     Get task status and results.
@@ -38,7 +38,7 @@ async def list_agents_endpoints() -> Dict[str, Any]:
     """
     agents = [
         {
-            "id": "planner:001",
+            "id": "planner_001",
             "type": "planner",
             "status": await get_agent_status("planner_001") or "offline"
         },
