@@ -57,7 +57,7 @@ class BaseAgent(ABC):
         while self.running:
             try: 
                 if self.status == AgentStatus.IDLE:
-                    task = await claim_task(self.agent_id)
+                    task = await claim_task(self.agent_id, self.agent_type.value)
                     if task: 
                         self.current_task = task
                         self.status = AgentStatus.WORKING

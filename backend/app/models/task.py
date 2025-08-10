@@ -10,10 +10,16 @@ class TaskStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
+class TaskType(str, Enum):
+    HUMAN_REQUEST = "human_request",
+    RESEARCH_SUBTASK = "research_subtask",
+    SYNTHESIS = "synthesis"
+
 class Task(BaseModel):
     id: str = Field(default_factory=lambda:str(uuid.uuid4()))
     human_request: str
     status: TaskStatus = TaskStatus.PENDING
+    task_type: TaskType = TaskType.HUMAN_REQUEST
     priority: int = Field(default=5, ge=1, le=10)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None

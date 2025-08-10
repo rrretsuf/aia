@@ -14,7 +14,8 @@ async def create_task_endpoint(submission: TaskSubmission) -> Dict[str, Any]:
     """
     task_id = await submit_task(
         human_request=submission.human_request,
-        priority=submission.priority
+        priority=submission.priority,
+        task_type="human_request"
     )
     return {
         "task_id": task_id,

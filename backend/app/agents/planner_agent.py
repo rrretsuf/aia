@@ -129,6 +129,15 @@ class PlannerAgent(BaseAgent):
             "completed_at": datetime.utcnow().isoformat
         })
 
+        # PRINT FINAL REPORT TO TERMINAL
+        print("\n" + "="*80)
+        print("📋 FINAL RESEARCH REPORT")
+        print("="*80)
+        print(f"Request: {parent_task['human_request']}")
+        print("-"*80)
+        print(final_report)
+        print("="*80 + "\n")
+
         return {
             "status": "synthesis_complete",
             "final_report": final_report

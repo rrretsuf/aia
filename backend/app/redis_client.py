@@ -43,15 +43,16 @@ def get_redis() -> redis.Redis:
         raise RuntimeError("Redis not initialized. Call init_redis() first.")
     return redis_client
 
-async def push_task(task_data: Dict[str, Any], priority: int = 5) -> bool:
-    """Add task to queue with priority"""
+async def push_task(task_data: Dict[str, Any], priority: int = 5, queue_name: str = "task_queue") -> bool:
+    """Add task to specific queue with priority"""
     task_json = json.dumps(task_data)
-    await get_redis().zadd("task_queue", {task_json: priority})
+    await get_redis().zadd(queue_name, {task_json: priority})
+    logger.info(f"Task pushed to {queue_name}")
     return True
 
-async def pop_task() -> Optional[Dict[str, Any]]:
-    """Get highest priority task from queue"""
-    result = await get_redis().zpopmax("task_queue")
+async def pop_task(queue_name: str = "task_queue") -> Optional[Dict[str, Any]]:
+    """Get highest priority task from specific queue"""
+    result = await get_redis().zpopmax(queue_name)
     if result:
         task_json, _ = result[0]
         return json.loads(task_json)

@@ -1,9 +1,9 @@
-import asyncio
 import json
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 import structlog
 import uuid
+from app.models.task import task_type
 
 from ..database import (
     create_task,
@@ -28,16 +28,20 @@ async def submit_task(human_request: str, priority: int = 5) -> str:
         'human_request': human_request,
         'status': 'pending',
         'priority': priority,
+        'task_type': task_type,
         'created_at': datetime.utcnow().isoformat()
     }
     
     # Save to database
     await create_task(task_data)
+
+    queue_name = "planner_queue" if task_type == "human_requst" else "research_queue"
+    await push_task({"task_id": task_id}, priority, queue_name)
     
     # Add to queue
     await push_task({'task_id': task_id}, priority)
     
-    logger.info(f"Task submitted: {task_id}")
+    logger.info(f"Task {task_id} submitted to {queue_name}")
     return task_id
 
 async def claim_task(agent_id: str) -> Optional[Dict[str, Any]]:
@@ -117,7 +121,8 @@ async def decompose_task(task_id: str, subtasks: List[str]) -> bool:
     for subtask_description in subtasks:
         subtask_id = await submit_task(
             human_request=subtask_description,
-            priority=5
+            priority=5,
+            task_type="research_subtask"
         )
         subtask_ids.append(subtask_id)
         
@@ -148,17 +153,40 @@ async def trigger_final_synthesis(parent_task_id: str):
     """
     Trigger planner to synthesize all findings.
     """
-    all_findings = []
-    parent_task = await get_task(parent_task_id)
-
-    for subtask_id in parent_task["subtasks"]:
-        findings = await get_findings(subtask_id)
-        all_findings.extend(findings)
-
+    synthesis_task_id = str(uuid.uuid4())
     synthesis_task = {
         "id": parent_task_id + "_synthesis", 
         "human_request": f"SYNTHESIZE: {parent_task_id}",
-        "type": "synthesis"
+        "task_type": "synthesis",
+        "status": "pending",
+        "priority": 10,
+        "created_at": datetime.utcnow().isoformat()
     }
 
-    await push_task({"task_id": synthesis_task["id"]}, priority=10)
+    await create_task(synthesis_task)
+    await push_task({"task_id": synthesis_task_id}, priority=10, queue_name="planner_queue")
+
+    logger.info(f"Synthesis task triggered for parent task {parent_task_id}")
+
+async def claim_task(agent_id: str, agent_type: str = "research") -> Optional[Dict[str, Any]]:
+    """
+    Agent claims next available task from appropriate queue.
+    """
+    queue_name = "planner_queue" if agent_type == "planner" else "research_queue"
+
+    task_data = await pop_task(queue_name)
+    if not task_data:
+        return None
+
+    task = await get_task(task_data["task_id"])
+    if task:
+        await update_task(task['id'], {
+            'status': 'in_progress',
+            'assigned_agents': [agent_id]
+        })
+
+        await set_agent_status(agent_id, "working")
+
+        logger.info(f"Task {task["id"]} claimed by {agent_id} from {queue_name}")
+
+    return None
