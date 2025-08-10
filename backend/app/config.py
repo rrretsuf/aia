@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     
     # API Keys
     openai_api_key: Optional[str] = None
-    openrouter_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = None 
     
     # Supabase Database
     supabase_url: Optional[str] = None
@@ -26,7 +26,10 @@ class Settings(BaseSettings):
     max_agents: int = 10
     agent_timeout: int = 300  # 5 minutes
     task_timeout: int = 1800  # 30 minutes
-    
+
+    # LLM Configuration
+    default_model: str = "PLACEHOLDER_MODEL_NAME"
+
     # Communication
     websocket_ping_interval: int = 20
     websocket_ping_timeout: int = 10

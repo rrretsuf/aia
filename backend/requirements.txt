@@ -17,6 +17,10 @@ langchain-community>=0.3.0
 openai==1.98.0
 httpx==0.28.1
 
+# NEW: Research Tools
+duckduckgo-search==6.3.0
+tenacity==9.0.0
+
 # Communication & WebSockets
 websockets==15.0.1
 python-socketio==5.13.0
