@@ -18,7 +18,7 @@ class PromptManager:
 
         logger.info(f"PromptManager initialized with prompts dir: {self.prompts_dir}")
 
-    def load_prompts(self, prompt_name: str) -> str:
+    def load_prompt(self, prompt_name: str) -> str:
         """
         Load a prompt from file, with caching.
         """

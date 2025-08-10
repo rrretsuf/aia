@@ -79,6 +79,16 @@ async def complete_task(task_id: str, agent_id: str, results: Dict[str, Any]) ->
     await set_agent_status(agent_id, 'idle')
     
     logger.info(f"Task {task_id} completed by {agent_id}")
+
+    task = await get_task(task_id)
+    if task and task.get("parent_task_id"):
+        parent_id = task["parent_task_id"]
+        logger.info(f"Checking if parent task {parent_id} is complete")
+
+        if await check_all_subtasks_complete(parent_id):
+            logger.info(f"All subtasks complete for {parent_id}, triggering synthesis")
+            await trigger_final_synthesis(parent_id)
+
     return True
 
 async def get_task_status(task_id: str) -> Dict[str, Any]:
@@ -118,3 +128,37 @@ async def decompose_task(task_id: str, subtasks: List[str]) -> bool:
     await update_task(task_id, {'subtasks': subtask_ids})
     
     return True
+
+async def check_all_subtasks_complete(parent_task_id: str) -> bool:
+    """
+    Check if all subtasks of parent are complete.
+    """
+    parent_task = await get_task(parent_task_id)
+    if not parent_task or not parent_task.get("subtasks"):
+        return False
+    
+    for subtask_id in parent_task["subtasks"]:
+        subtask = await get_task(subtask_id)
+        if not subtask or subtask["status"] != "completed":
+            return False
+        
+    return True
+
+async def trigger_final_synthesis(parent_task_id: str):
+    """
+    Trigger planner to synthesize all findings.
+    """
+    all_findings = []
+    parent_task = await get_task(parent_task_id)
+
+    for subtask_id in parent_task["subtasks"]:
+        findings = await get_findings(subtask_id)
+        all_findings.extend(findings)
+
+    synthesis_task = {
+        "id": parent_task_id + "_synthesis", 
+        "human_request": f"SYNTHESIZE: {parent_task_id}",
+        "type": "synthesis"
+    }
+
+    await push_task({"task_id": synthesis_task["id"]}, priority=10)

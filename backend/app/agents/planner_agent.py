@@ -1,18 +1,18 @@
 from typing import Dict, Any, List
-import json
 import structlog
 from .base_agent import BaseAgent
 from ..models.agent import AgentType
-from ..core.task_manager import decompose_task
+from ..core.task_manager import decompose_task, get_task, get_findings, update_task
 from ..llm.openrouter_client import get_openrouter_client
 from ..llm.prompt_manager import get_prompt_manager
+import datetime
 
 logger = structlog.get_logger()
 
 class PlannerAgent(BaseAgent):
 
     def __init__(self):
-        super().__init__(agent_id="planner001", agent_type=AgentType.PLANNER)
+        super().__init__(agent_id="planner_001", agent_type=AgentType.PLANNER)
 
         self.llm_client = get_openrouter_client()
         self.prompt_manager = get_prompt_manager()
@@ -36,6 +36,10 @@ class PlannerAgent(BaseAgent):
         task_id = task["id"]
 
         logger.info(f"PLANNER: Processing request: {human_request}")
+
+        if human_request.startswith("SYNTHESIZE"):
+            parent_task_id = human_request.split(":")[1]
+            return await self._synthesize_results(parent_task_id)
 
         # create dynamic role assignments
         try:
@@ -94,6 +98,41 @@ class PlannerAgent(BaseAgent):
                 raise ValueError("Assignment missing role or task")
             
         return assignments
+    
+    async def _synthesize_results(self, parent_task_id: str) -> Dict[str, Any]:
+        """
+        Synthesize all research findings into final report.
+        """
+        all_findings = []
+        parent_task = await get_task(parent_task_id)
+
+        for subtask_id in parent_task["subtasks"]:
+            findings = await get_findings(subtask_id)
+            all_findings.extend(findings)
+
+        synthesis_prompt = "You are creating a final research report. Synthesize these findings into a comprehensive analysis."
+
+        findings_text = "\n\n".join([
+            f"Agent {f['agent_id']} ({f.get('assigned_role', 'Unknown')}):\n{f['findings']['detailed_analysis']}"
+            for f in all_findings
+        ])
+
+        final_report = await self.llm_client.generate_response(
+            system_prompt=synthesis_prompt,
+            human_message=f"Original request: {parent_task['human_request']}\n\nFindings:\n{findings_text}",
+            temperature=0.6
+        )
+
+        await update_task(parent_task_id, {
+            "status": "completed",
+            "final_report": final_report,
+            "completed_at": datetime.utcnow().isoformat
+        })
+
+        return {
+            "status": "synthesis_complete",
+            "final_report": final_report
+        }
     
     def _fallback_assignments(self, request: str) -> List[Dict[str, str]]:
         """

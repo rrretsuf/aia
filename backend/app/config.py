@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     task_timeout: int = 1800  # 30 minutes
 
     # LLM Configuration
-    default_model: str = "PLACEHOLDER_MODEL_NAME"
+    default_model: str = "moonshotai/kimi-k2:free"
 
     # Communication
     websocket_ping_interval: int = 20
