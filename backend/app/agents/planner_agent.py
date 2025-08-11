@@ -5,7 +5,7 @@ from ..models.agent import AgentType
 from ..core.task_manager import decompose_task, get_task, get_findings, update_task
 from ..llm.openrouter_client import get_openrouter_client
 from ..llm.prompt_manager import get_prompt_manager
-import datetime
+from datetime import datetime
 
 logger = structlog.get_logger()
 
@@ -113,8 +113,8 @@ class PlannerAgent(BaseAgent):
         synthesis_prompt = "You are creating a final research report. Synthesize these findings into a comprehensive analysis."
 
         findings_text = "\n\n".join([
-            f"Agent {f['agent_id']} ({f.get('assigned_role', 'Unknown')}):\n{f['findings']['detailed_analysis']}"
-            for f in all_findings
+            f"Agent {f['agent_id']} ({f.get('assigned_role', 'Unknown')}):\n{f['findings']['findings']['detailed_analysis']}"
+            for f in all_findings if f.get('findings') and f['findings'].get('findings')  # Added safety checks
         ])
 
         final_report = await self.llm_client.generate_response(

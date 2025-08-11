@@ -11,7 +11,7 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
 class TaskType(str, Enum):
-    HUMAN_REQUEST = "human_request",
+    HUMAN_REQUEST = "human_request"
     RESEARCH_SUBTASK = "research_subtask",
     SYNTHESIS = "synthesis"
 
