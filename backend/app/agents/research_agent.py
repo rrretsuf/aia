@@ -58,7 +58,7 @@ class ResearchAgent(BaseAgent):
     
     async def _web_research(self, query: str, role: Optional[str]) -> dict:
         if role: 
-            system_prompt = f"You are a {role}. Research the web and analyse fromrole's perspective."
+            system_prompt = f"You are a {role}. Research the web and analyse from this role's perspective."
         else:
             system_prompt = f"You are research specialist. Search the web and provide comprehensive analysis."
 

@@ -114,7 +114,7 @@ class PlannerAgent(BaseAgent):
 
         findings_text = "\n\n".join([
             f"Agent {f['agent_id']} ({f.get('assigned_role', 'Unknown')}):\n{f['findings']['findings']['detailed_analysis']}"
-            for f in all_findings if f.get('findings') and f['findings'].get('findings')  # Added safety checks
+            for f in all_findings if f.get('findings') and f['findings'].get('findings')
         ])
 
         final_report = await self.llm_client.generate_response(
@@ -123,13 +123,6 @@ class PlannerAgent(BaseAgent):
             temperature=0.6
         )
 
-        await update_task(parent_task_id, {
-            "status": "completed",
-            "final_report": final_report,
-            "completed_at": datetime.utcnow().isoformat
-        })
-
-        # PRINT FINAL REPORT TO TERMINAL
         print("\n" + "="*80)
         print("📋 FINAL RESEARCH REPORT")
         print("="*80)
@@ -137,6 +130,15 @@ class PlannerAgent(BaseAgent):
         print("-"*80)
         print(final_report)
         print("="*80 + "\n")
+
+        try:
+            await update_task(parent_task_id, {
+                "status": "completed",
+                "final_report": final_report,
+                "completed_at": datetime.utcnow().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Failed to save final report to database: {e}")
 
         return {
             "status": "synthesis_complete",
@@ -169,14 +171,18 @@ class PlannerAgent(BaseAgent):
         Simple fallback prompt
         """
         return """
-        You are a research director. Create 3 distinct roles and tasks for research agents.
+        You are a research director. Create EXACTLY 3 distinct roles and tasks for research agents.
 
-        Return JSON array:
+        Return ONLY a JSON array with this EXACT structure:
         [
         {"role": "Role Name 1", "task": "Specific task description"},
         {"role": "Role Name 2", "task": "Specific task description"},
         {"role": "Role Name 3", "task": "Specific task description"}
         ]
 
-        Make roles specific to the request, not generic.
+        Rules:
+        - Return ONLY the JSON array, no other text
+        - Each object MUST have "role" and "task" fields
+        - Make roles specific to the request, not generic
+        - Tasks should be actionable research directives
         """

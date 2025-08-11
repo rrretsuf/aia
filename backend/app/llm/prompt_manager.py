@@ -55,10 +55,11 @@ class PromptManager:
 
         for line in lines:
             if line.startswith("#"):
-                continue
-            if not processed_lines and not line.strip():
-                continue
-            processed_lines.append(line)
+                clean_line = line.lstrip("#").strip()
+                if clean_line:
+                    processed_lines.append(clean_line)
+            else:
+                processed_lines.append(line)
 
         result = "\n".join(processed_lines).strip()
 
