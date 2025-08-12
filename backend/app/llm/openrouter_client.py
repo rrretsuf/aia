@@ -43,18 +43,29 @@ class OpenRouterClient():
         system_prompt: str,
         human_message: str,
         web_search: bool = False,
+        model_override: Optional[str] = None,
         **kwargs
     ) -> str:
         """
         Generate response using OpenRouter
         """
-        try: 
+        try:
             messages = [
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=human_message)
             ]
-        
-            if web_search:
+            
+            if model_override:
+                temp_llm = ChatOpenAI(
+                    model=model_override if not web_search else f"{model_override}:online",
+                    openai_api_key=self.settings.openrouter_api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=kwargs.get("temperature", 0.7),
+                    max_tokens=kwargs.get("max_tokens", 2000),
+                    timeout=30,
+                )
+                response = await temp_llm.ainvoke(messages, **kwargs)
+            elif web_search:
                 web_llm = ChatOpenAI(
                     model=f"{self.model_name}:online",
                     openai_api_key=self.settings.openrouter_api_key,
@@ -66,7 +77,7 @@ class OpenRouterClient():
                 response = await web_llm.ainvoke(messages, **kwargs)
             else:
                 response = await self.llm.ainvoke(messages, **kwargs)
-
+            
             return response.content
         
         except Exception as e:

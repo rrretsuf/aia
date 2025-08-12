@@ -10,7 +10,7 @@ class AgentStatus(str, Enum):
     OFFLINE = "offline"
 
 class AgentType(str, Enum):
-    PLANNER = "planner"
+    BRAINHIVE = "brainhive"
     RESEARCH = "research"
 
 class Agent(BaseModel):

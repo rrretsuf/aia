@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     upstash_redis_url: Optional[str] = None
     
     # Agent Configuration
-    max_agents: int = 10
+    max_agents: int = 5
     agent_timeout: int = 300  # 5 minutes
     task_timeout: int = 1800  # 30 minutes
 

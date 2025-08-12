@@ -6,8 +6,10 @@ from .config import get_settings
 from .database import init_supabase
 from .redis_client import init_redis
 from .api.endpoints import router
-from .agents.planner_agent import PlannerAgent
+from .agents.brain_hive import PlannerAgent
 from .agents.research_agent import ResearchAgent
+from .agents.brain_hive import BrainHive
+from .agents.agent_factory import AgentFactory
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -32,14 +34,11 @@ async def startup_event():
     await init_supabase()
     await init_redis()
 
-    planner = PlannerAgent()
-    research_1 = ResearchAgent(1)
-    research_2 = ResearchAgent(2)
-    research_3 = ResearchAgent(3)
+    brain_hive = BrainHive()
+    agents.append(brain_hive)
+    asyncio.create_task(brain_hive.start())
 
-    for agent in [planner, research_1, research_2, research_3]:
-        agents.append(agent)
-        asyncio.create_task(agent.start())
+    logger.info("Brain Hive intialized - agents will spawn on demand")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -47,10 +46,15 @@ async def shutdown_event():
     Cleanup on shutdown.
     """
     logger.info("Shutting down AI Agency MVP...")
-
+    
+    # Stop Brain Hive
     for agent in agents:
         await agent.stop()
-
+    
+    # Shutdown any dynamically spawned agents
+    factory = AgentFactory()
+    await factory.shutdown_all()
+    
     logger.info("Shutdown complete")
 
 @app.get("/")

@@ -76,3 +76,25 @@ async def set_agent_status(agent_id: str, status: str) -> bool:
 async def get_agent_status(agent_id: str) -> Optional[str]:
     """Get agent status from Redis"""
     return await get_redis().hget(f"agent:{agent_id}", "status")
+
+async def list_agents_status() -> Dict[str, str]:
+    """
+    List all agents and their statuses from Redis.
+    """
+    agent_statuses = {}
+
+    cursor = 0
+    pattern = "agent:*"
+
+    while True:
+        cursor, keys = await get_redis().scan(cursor, match=pattern, count=100)
+
+        for key in keys:
+            agent_id = key.replace("agent:", "")
+            status = await get_redis().hget(key, "status")
+            agent_statuses[agent_id] = status
+
+        if cursor == 0:
+            break
+
+    return agent_statuses

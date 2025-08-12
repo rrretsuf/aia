@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 from ..models.task import TaskSubmission
 from ..core.task_manager import submit_task, get_task_status
-from ..redis_client import get_agent_status
+from ..redis_client import get_agent_status, list_agents_status
 
 router = APIRouter()
 
@@ -37,28 +37,24 @@ async def list_agents_endpoints() -> Dict[str, Any]:
     """
     List all agents and their status,
     """
-    agents = [
-        {
-            "id": "planner_001",
-            "type": "planner",
-            "status": await get_agent_status("planner_001") or "offline"
-        },
-        {
-            "id": "research_001",
-            "type": "research",
-            "status": await get_agent_status("research_001") or "offline"
-        },
-        {
-            "id": "research_002",
-            "type": "research",
-            "status": await get_agent_status("research_002") or "offline"
-        },
-        {
-            "id": "research_003",
-            "type": "research",
-            "status": await get_agent_status("research_003") or "offline"
-        },
-    ]
+    agent_statuses = await list_agents_status()
+
+    agents = []
+    for agent_id, status in agent_statuses.items():
+        agent_type = "brain_hive" if "brain" in agent_id else "research"
+        agents.append({
+            "id": agent_id,
+            "type": agent_type,
+            "status": status or "offline"
+        })
+    
+    if not any(a["id"] == "brain_hive_001" for a in agents):
+        agents.insert(0, {
+            "id": "brain_hive_001",
+            "type": "brain_hive",
+            "status": await get_agent_status("brain_hive_001") or "offline"
+        })
+
     return {"agents": agents}
 
 @router.get("/health")
