@@ -1,92 +1,84 @@
 import asyncio
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import structlog
 from datetime import datetime, timedelta
 
-from .research_agent import ResearchAgent
+from .worker_agent import WorkerAgent
 from ..redis_client import get_agent_status
 from ..config import get_settings
 
 logger = structlog.get_logger()
-
 settings = get_settings()
 
 class AgentFactory:
     """
-    Manages dynamic agent spawning and lifecycle.
+    Manages dynamic agent spawning by name (not by number).
     """
-
+    
     def __init__(self):
-        self.active_agents: Dict[str, ResearchAgent] = {}
-        self.max_counter = 0
+        self.active_agents: Dict[str, WorkerAgent] = {}
         self.max_agents = settings.max_agents
         self.agent_timeout = timedelta(seconds=settings.agent_timeout)
         self.logger = logger.bind(component="AgentFactory")
-
-    async def ensure_capacity(self, required: int) -> int:
+    
+    async def ensure_agents(self, required_names: List[str]) -> int:
         """
-        Ensure we have at least 'required' agents running. Returns actual number spawned.
+        Ensure all agents with given names are running.
+        Returns number of newly spawned agents.
         """
-        required = min(required, self.max_agents)
-        current_count = len(self.activate_agents)
-
-        if current_count >= required:
-            self.logger.info(f"Capacity OK: {current_count}/{required} agents active")
-            return 0
-        
-        to_spawn = required - current_count
-        self.logger.info(f"Spawning {to_spawn} new agents (current: {current_count})")
-
         spawned = 0
-        for _ in range(to_spawn):
+        
+        for name in required_names:
+            if name in self.active_agents:
+                self.logger.debug(f"Agent {name} already active")
+                continue
+            
             if len(self.active_agents) >= self.max_agents:
-                self.logger.warning(f"Hit max agent limit {self.max_agents}")
+                self.logger.warning(f"Max agents reached ({self.max_agents}), cannot spawn '{name}'")
                 break
-
-            agent = await self._spawn_agent()
+            
+            agent = await self._spawn_agent(name)
             if agent:
                 spawned += 1
-
+        
         return spawned
     
-    async def _spawn_agent(self) -> Optional[ResearchAgent]:
+    async def _spawn_agent(self, agent_name: str) -> Optional[WorkerAgent]:
         """
-        Spawn a single new agent.
+        Spawn a single agent with specific name.
         """
-        self.agent_counter += 1
-        agent_number = self.agent_counter
-
         try:
-            agent = ResearchAgent(agent_number)
+            agent = WorkerAgent(agent_name)
             self.active_agents[agent.agent_id] = agent
-
+            
+            # Start agent in background
             asyncio.create_task(agent.start())
-
-            self.logger.info(f"Spawned agent: {agent.agent_id}")
+            
+            self.logger.info(f"Spawned agent: {agent_name}")
             return agent
-        
+            
         except Exception as e:
-            self.logger.error(f"Failed to spawn agent: {e}")
+            self.logger.error(f"Failed to spawn agent {agent_name}: {e}")
             return None
-        
-    async def shrink_idle(self) -> int: 
+    
+    async def shrink_idle(self) -> int:
         """
-        Remove idle agents that exceeded timeout. Returns number of agents removed.
+        Remove idle agents that exceeded timeout.
+        Returns number of agents removed.
         """
         removed = 0
-        now = datetime.utcnow()
-
+        
         for agent_id in list(self.active_agents.keys()):
             status = await get_agent_status(agent_id)
-
+            
             if status == "idle":
-                # for now simple approach - remove if idle
+                # Keep at least 1 agent
                 if len(self.active_agents) > 1:
                     agent = self.active_agents.pop(agent_id)
                     await agent.stop()
-                    removed += 1 
+                    removed += 1
                     self.logger.info(f"Removed idle agent: {agent_id}")
-
+        
         return removed
     
     async def shutdown_all(self):
@@ -94,21 +86,21 @@ class AgentFactory:
         Stop all active agents.
         """
         self.logger.info(f"Shutting down {len(self.active_agents)} agents")
-
+        
         for agent in self.active_agents.values():
             await agent.stop()
-
+        
         self.active_agents.clear()
-        self.logger.info("All agents are shut down")
-
+        self.logger.info("All agents shut down")
+    
     def get_active_count(self) -> int:
         """
         Get number of currently active agents.
         """
         return len(self.active_agents)
     
-    def get_active_ids(self) -> list:
+    def get_active_names(self) -> List[str]:
         """
-        Get list of active agent IDs.
+        Get list of active agent names.
         """
         return list(self.active_agents.keys())

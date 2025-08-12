@@ -6,7 +6,6 @@ from .config import get_settings
 logger = structlog.get_logger()
 settings = get_settings()
 
-# Global Supabase client instance
 supabase: Optional[Client] = None
 
 async def init_supabase() -> Client:
@@ -22,7 +21,6 @@ async def init_supabase() -> Client:
             settings.supabase_key
         )
         
-        # Test connection
         response = supabase.table('tasks').select("count", count='exact').execute()
         logger.info("Supabase connected successfully")
         
@@ -55,18 +53,17 @@ async def update_task(task_id: str, updates: Dict[str, Any]) -> bool:
     return bool(response.data)
 
 async def save_findings(task_id: str, agent_id: str, findings: Dict[str, Any]) -> bool:
-    """Save research findings"""
+    """Save worker findings""" 
     data = {
         'task_id': task_id,
         'agent_id': agent_id,
         'findings': findings,
         'confidence': findings.get('confidence', 0.5)
     }
-    response = get_supabase().table('research_findings').insert(data).execute()
+    response = get_supabase().table('findings').insert(data).execute()
     return bool(response.data)
 
 async def get_findings(task_id: str) -> list:
     """Get all findings for a task"""
-    response = get_supabase().table('research_findings').select("*").eq('task_id', task_id).execute()
+    response = get_supabase().table('findings').select("*").eq('task_id', task_id).execute()
     return response.data or []
-

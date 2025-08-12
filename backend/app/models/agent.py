@@ -10,8 +10,8 @@ class AgentStatus(str, Enum):
     OFFLINE = "offline"
 
 class AgentType(str, Enum):
-    BRAINHIVE = "brainhive"
-    RESEARCH = "research"
+    ORCHESTRATOR = "orchestrator"  # brain Hive
+    WORKER = "worker" 
 
 class Agent(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

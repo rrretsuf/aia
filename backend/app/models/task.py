@@ -12,7 +12,7 @@ class TaskStatus(str, Enum):
 
 class TaskType(str, Enum):
     HUMAN_REQUEST = "human_request"
-    RESEARCH_SUBTASK = "research_subtask"
+    WORKER_SUBTASK = "worker_subtask"
     SYNTHESIS = "synthesis"
 
 class Task(BaseModel):

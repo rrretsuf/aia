@@ -27,24 +27,21 @@ async def submit_task(human_request: str, priority: int = 5, task_type: str = "h
         'human_request': human_request,
         'status': 'pending',
         'priority': priority,
-        'task_type': task_type,  # Now using the parameter
+        'task_type': task_type,
         'created_at': datetime.utcnow().isoformat()
     }
     
-    # Save to database
     await create_task(task_data)
 
-    # Add to appropriate queue based on task type
-    queue_name = "planner_queue" if task_type == "human_request" else "research_queue"
+    queue_name = "brain_hive_queue" if task_type == "human_request" else "agent_queue"  
     await push_task({"task_id": task_id}, priority, queue_name)
     
     logger.info(f"Task {task_id} submitted to {queue_name}")
     return task_id
 
-async def claim_task(agent_id: str, agent_type: str = "research") -> Optional[Dict[str, Any]]:
+async def claim_task(agent_id: str, agent_type: str = "worker") -> Optional[Dict[str, Any]]:
     """Agent claims next available task from appropriate queue"""
-    # Determine which queue to pull from
-    queue_name = "planner_queue" if agent_type == "planner" else "research_queue"
+    queue_name = "brain_hive_queue" if agent_type == "orchestrator" else "agent_queue"
     
     task_data = await pop_task(queue_name)
     if not task_data:
@@ -52,17 +49,15 @@ async def claim_task(agent_id: str, agent_type: str = "research") -> Optional[Di
     
     task = await get_task(task_data['task_id'])
     if task:
-        # Update task assignment
         await update_task(task['id'], {
             'status': 'in_progress',
             'assigned_agents': [agent_id]
         })
         
-        # Update agent status
         await set_agent_status(agent_id, 'working')
         
         logger.info(f"Task {task['id']} claimed by {agent_id} from {queue_name}")
-        return task  # Fixed: return task instead of None
+        return task 
     
     return None
 
@@ -76,10 +71,8 @@ async def complete_task(task_id: str, agent_id: str, results: Dict[str, Any]) ->
         'progress': 1.0
     })
     
-    # Save findings
     await save_findings(task_id, agent_id, results)
     
-    # Update agent status
     await set_agent_status(agent_id, 'idle')
     
     logger.info(f"Task {task_id} completed by {agent_id}")
@@ -115,21 +108,18 @@ async def get_task_status(task_id: str) -> Dict[str, Any]:
 
 async def decompose_task(task_id: str, subtasks: List[str]) -> bool:
     """Break task into subtasks"""
-    # Update parent task with subtask IDs
     subtask_ids = []
     
     for subtask_description in subtasks:
         subtask_id = await submit_task(
             human_request=subtask_description,
             priority=5,
-            task_type="research_subtask"  # Mark as research subtask
+            task_type="worker_subtask" 
         )
         subtask_ids.append(subtask_id)
         
-        # Link to parent
         await update_task(subtask_id, {'parent_task_id': task_id})
     
-    # Update parent task
     await update_task(task_id, {'subtasks': subtask_ids})
     
     return True
@@ -148,10 +138,10 @@ async def check_all_subtasks_complete(parent_task_id: str) -> bool:
     return True
 
 async def trigger_final_synthesis(parent_task_id: str):
-    """Trigger planner to synthesize all findings."""
+    """Trigger brain hive to synthesize all findings."""
     synthesis_task_id = str(uuid.uuid4())
     synthesis_task = {
-        "id": synthesis_task_id,  # Fixed: use the generated UUID
+        "id": synthesis_task_id,
         "human_request": f"SYNTHESIZE:{parent_task_id}",
         "task_type": "synthesis",
         "status": "pending",
@@ -159,10 +149,8 @@ async def trigger_final_synthesis(parent_task_id: str):
         "created_at": datetime.utcnow().isoformat()
     }
 
-    # Save to database
     await create_task(synthesis_task)
     
-    # Send to planner queue with high priority
-    await push_task({"task_id": synthesis_task_id}, priority=10, queue_name="planner_queue")
+    await push_task({"task_id": synthesis_task_id}, priority=10, queue_name="brain_hive_queue")
 
     logger.info(f"Synthesis task triggered for parent task {parent_task_id}")

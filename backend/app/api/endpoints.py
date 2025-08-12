@@ -41,17 +41,21 @@ async def list_agents_endpoints() -> Dict[str, Any]:
 
     agents = []
     for agent_id, status in agent_statuses.items():
-        agent_type = "brain_hive" if "brain" in agent_id else "research"
+        if agent_id == "brain_hive_001":
+            agent_type = "orchestrator"
+        else:
+            agent_type = "worker"
+        
         agents.append({
             "id": agent_id,
             "type": agent_type,
             "status": status or "offline"
         })
-    
+
     if not any(a["id"] == "brain_hive_001" for a in agents):
         agents.insert(0, {
             "id": "brain_hive_001",
-            "type": "brain_hive",
+            "type": "orchestrator",
             "status": await get_agent_status("brain_hive_001") or "offline"
         })
 
