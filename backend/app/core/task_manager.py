@@ -14,7 +14,8 @@ from ..database import (
 from ..redis_client import (
     push_task,
     pop_task,
-    set_agent_status
+    set_agent_status,
+    set_once
 )
 
 logger = structlog.get_logger()
@@ -138,7 +139,12 @@ async def check_all_subtasks_complete(parent_task_id: str) -> bool:
     return True
 
 async def trigger_final_synthesis(parent_task_id: str):
-    """Trigger brain hive to synthesize all findings."""
+    """Trigger brain hive to synthesize all findings (idempotent)."""
+    # ensure single enqueue
+    if not await set_once(f"synth:enqueued:{parent_task_id}", ttl_seconds=3600):
+        logger.info(f"Synthesis already enqueued for parent task {parent_task_id}")
+        return
+
     synthesis_task_id = str(uuid.uuid4())
     synthesis_task = {
         "id": synthesis_task_id,
@@ -150,7 +156,18 @@ async def trigger_final_synthesis(parent_task_id: str):
     }
 
     await create_task(synthesis_task)
-    
     await push_task({"task_id": synthesis_task_id}, priority=10, queue_name="brain_hive_queue")
-
     logger.info(f"Synthesis task triggered for parent task {parent_task_id}")
+
+async def fail_task(task_id: str, agent_id: str, error: Dict[str, Any]) -> bool:
+    """Mark task as failed (no synthesis side-effects here)."""
+    await update_task(task_id, {
+        'status': 'failed',
+        'results': json.dumps({'status': 'failed', 'error': error}),
+        'completed_at': datetime.utcnow().isoformat(),
+        'progress': 1.0
+    })
+    await save_findings(task_id, agent_id, {'status': 'failed', 'error': error})
+    await set_agent_status(agent_id, 'idle')
+    logger.error(f"Task {task_id} failed by {agent_id}: {error}")
+    return True

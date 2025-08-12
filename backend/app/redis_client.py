@@ -98,3 +98,10 @@ async def list_agents_status() -> Dict[str, str]:
             break
 
     return agent_statuses
+
+async def set_once(key: str, ttl_seconds: int) -> bool:
+    """
+    Set a key once (SET NX). Returns True if set; False if it already existed.
+    """
+    res = await get_redis().set(name=key, value="1", nx=True, ex=ttl_seconds)
+    return bool(res)

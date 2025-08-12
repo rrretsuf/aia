@@ -54,10 +54,18 @@ class OpenRouterClient():
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=human_message)
             ]
-            
+
+            def _choose_model(base_model: str, web: bool) -> str:
+                if not web:
+                    return base_model
+                if ":online" in base_model:
+                    return base_model
+                return f"{self.model_name}:online"
+
             if model_override:
+                chosen = _choose_model(model_override, web_search)
                 temp_llm = ChatOpenAI(
-                    model=model_override if not web_search else f"{model_override}:online",
+                    model=chosen,
                     openai_api_key=self.settings.openrouter_api_key,
                     openai_api_base="https://openrouter.ai/api/v1",
                     temperature=kwargs.get("temperature", 0.7),
@@ -77,12 +85,13 @@ class OpenRouterClient():
                 response = await web_llm.ainvoke(messages, **kwargs)
             else:
                 response = await self.llm.ainvoke(messages, **kwargs)
-            
+
             return response.content
-        
+
         except Exception as e:
             logger.error(f"OpenRouter API call failed: {e}")
             raise
+
 
     @retry(
         stop=stop_after_attempt(3),
@@ -97,26 +106,20 @@ class OpenRouterClient():
         """
         Generate JSON response using OpenRouter.
         """
+        json_system_prompt = f"{system_prompt}\n\nIMPORTANT: Return ONLY valid JSON, no additional text."
+        response_text = await self.generate_response(
+            system_prompt=json_system_prompt,
+            human_message=human_message,
+            **kwargs
+        )
+
         try:
-            json_system_prompt = f"{system_prompt}\n\nIMPORTANT: Return ONLY valid JSON, no additional text."
+            return json.loads(response_text.strip())
+        except Exception as e:
+            logger.error(f"Failed to parse JSON response: {e}")
+            cleaned_response = self._extract_json(response_text)
+            return json.loads(cleaned_response)
 
-            response_text = await self.generate_response(
-                system_prompt=json_system_prompt,
-                human_message=human_message,
-                **kwargs
-            )
-
-            try: 
-                return json.loads(response_text.strip())
-            
-            except Exception as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                cleaned_response = self._extract_json(response_text)
-                return json.loads(cleaned_response)
-            
-        except Exception as e: 
-            logger.error(f"JSON generation failed: {e}")
-            raise
     
     def _extract_json(self, text: str) -> str:
         """

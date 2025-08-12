@@ -6,7 +6,7 @@ from ..models.agent import AgentType
 from ..core.task_manager import decompose_task, get_task, get_findings, update_task
 from ..llm.openrouter_client import get_openrouter_client
 from ..llm.prompt_manager import get_prompt_manager
-from datetime import datetime
+from datetime import datetime, timezone
 from .agent_factory import AgentFactory
 
 logger = structlog.get_logger()
@@ -134,12 +134,12 @@ class BrainHive(BaseAgent):
         """
         all_findings = []
         parent_task = await get_task(parent_task_id)
-        
+        today = datetime.now(timezone.utc).date().isoformat()        
         for subtask_id in parent_task["subtasks"]:
             findings = await get_findings(subtask_id)
             all_findings.extend(findings)
         
-        synthesis_prompt = "You are creating the final output. Synthesize these findings into a comprehensive analysis."
+        synthesis_prompt = f"You are creating the final output. Today is {today} Synthesize these findings into a comprehensive analysis."
         
         findings_text = "\n\n".join([
             f"Agent {f['agent_id']} ({f.get('assigned_role', 'Worker')}):\n{f['findings']['findings']['detailed_analysis']}"
